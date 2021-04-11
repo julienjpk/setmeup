@@ -1,0 +1,4 @@
+sources:
+  1:
+    type: "local"
+    path: "/"

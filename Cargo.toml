@@ -1,0 +1,13 @@
+[package]
+name = "setmeup"
+version = "0.0.0"
+authors = ["Julien JPK <julienjpk@email.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.3"
+directories = "3.0.1"
+yaml-rust = "0.4.5"
+regex = "1.4.5"
+faccess = "0.2.3"
+git-url-parse = "0.3.1"

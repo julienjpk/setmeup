@@ -1,0 +1,10 @@
+sources:
+  foo:
+    type: "local"
+    path: "/tmp"
+
+ansible_playbook:
+  env:
+    - no_name: "name"
+      value: "value"
+

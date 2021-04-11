@@ -1,0 +1,8 @@
+sources:
+  foo:
+    type: "local"
+    path: "/tmp"
+
+ansible_playbook:
+  args: ["test", 42]
+

@@ -1,0 +1,4 @@
+sources:
+  located:
+    type: "local"
+    path: "/tmp"

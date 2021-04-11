@@ -1,0 +1,9 @@
+sources:
+  foo:
+    type: "local"
+    path: "/tmp"
+
+ansible_playbook:
+  env:
+    - name: 42
+      value: "value"

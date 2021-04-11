@@ -1,0 +1,5 @@
+sources:
+  foo:
+    type: "local"
+    path: "/tmp"
+    recurse: 42

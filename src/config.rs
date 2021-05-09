@@ -14,15 +14,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+use crate::sources::*;
+
 use std::collections::HashMap;
 use std::path::{PathBuf, Path};
 
 use clap::ArgMatches;
 use directories::{ProjectDirs, BaseDirs, UserDirs};
 use yaml_rust::{Yaml, YamlLoader};
-use regex::Regex;
 use faccess::PathExt;
-use git_url_parse::GitUrl;
 
 /// Returns a (ordered) vector of possible locations for the configuration file
 fn get_default_locations() -> Vec<PathBuf> {
@@ -72,20 +72,6 @@ fn infer_configuration_path(args: ArgMatches) -> Result<PathBuf, ()> {
 }
 
 
-/// A playbook source type: local or git
-pub enum SourceType {
-    Local(PathBuf),
-    Git(GitUrl) /* TODO: handle permanent git directories */
-}
-
-/// A playbook source
-pub struct Source {
-    name: String,
-    source_type: SourceType,
-    recurse: bool,
-    playbook_match: Regex
-}
-
 /// Parameters to use when invoking ansible-playbook
 pub struct AnsibleContext {
     path: Option<PathBuf>,
@@ -95,8 +81,8 @@ pub struct AnsibleContext {
 
 /// Set Me Up! configuration structure
 pub struct Config {
-    sources: Vec<Source>,
-    ansible: AnsibleContext
+    pub sources: Vec<Source>,
+    pub ansible: AnsibleContext
 }
 
 impl Config {
@@ -144,66 +130,6 @@ impl Config {
     }
 }
 
-impl Source {
-    /// Parses YAML for a playbook source
-    fn parse(name: String, yaml: &Yaml) -> Result<Self, String> {
-        let source_type = match &yaml["type"] {
-            Yaml::String(s) => match s.as_str() {
-                "local" => Self::parse_local_source_type(&yaml)?,
-                "git" => Self::parse_git_source_type(&yaml)?,
-                _ => return Err(format!("unknown source type: {}", s))
-            },
-            _ => return Err("unexpected non-string source type or malformed source YAML".to_string())
-        };
-
-        Ok(Self {
-            name,
-            source_type,
-
-            recurse: match yaml["recurse"] {
-                Yaml::Boolean(b) => b,
-                Yaml::BadValue => false,
-                _ => return Err("expected boolean for the recurse source parameter".to_string())
-            },
-
-            playbook_match: match &yaml["playbook_match"] {
-                Yaml::String(s) => match Regex::new(&s) {
-                    Ok(r) => r,
-                    Err(e) => return Err(e.to_string())
-                },
-                Yaml::BadValue => Regex::new(r#"\.ya?ml$"#).unwrap(),
-                _ => return Err("expected string for the playbook_match source parameter".to_string())
-            }
-        })
-    }
-
-    /// Parses a local playbook source
-    fn parse_local_source_type(yaml: &Yaml) -> Result<SourceType, String> {
-        let path = match &yaml["path"] {
-            Yaml::String(s) => PathBuf::from(s),
-            Yaml::BadValue => return Err("missing path parameter for local source".to_string()),
-            _ => return Err("expected string for the path source parameter".to_string())
-        };
-
-        match path.is_dir() && path.readable() {
-            true => Ok(SourceType::Local(path)),
-            false => Err(format!("failed to read at {}", path.to_str().unwrap()))
-        }
-    }
-
-    /// Parses a Git playbook source
-    fn parse_git_source_type(yaml: &Yaml) -> Result<SourceType, String> {
-        match &yaml["url"] {
-            Yaml::String(s) => match GitUrl::parse(&s) {
-                /* TODO: consider another crate: this one doesn't spot a bad URL, or it panics */
-                Ok(u) => Ok(SourceType::Git(u)),
-                Err(_) => Err(format!("invalid git url: {}", s))
-            },
-            Yaml::BadValue => return Err("missing url parameter for git source".to_string()),
-            _ => return Err("expected string for the url source parameter".to_string())
-        }
-    }
-}
 
 impl AnsibleContext {
     /// Handles parsing the path to ansible-playbook as well as the args and env we should use
@@ -351,16 +277,6 @@ mod tests {
     }
 
     #[test]
-    fn test_non_string_source_type_ko() -> Result<(), String> {
-        expected_error_raised("non_string_source_type", "unexpected non-string source type")
-    }
-
-    #[test]
-    fn test_unknown_source_type_ko() -> Result<(), String> {
-        expected_error_raised("unknown_source_type", "unknown source type")
-    }
-
-    #[test]
     fn test_local_no_path_ko() -> Result<(), String> {
         expected_error_raised("local_no_path", "missing path parameter")
     }
@@ -388,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_invalid_playbook_match_ko() -> Result<(), String> {
-        expected_error_raised("invalid_playbook_match", "") /* not testing regex cratelclgcl */
+        expected_error_raised("invalid_playbook_match", "") /* not testing regex crate */
     }
 
     #[test]
@@ -415,12 +331,13 @@ mod tests {
             return Err("matched a .txt file with the default REGEX".to_string())
         }
 
-        match &c.sources[0].source_type {
-            SourceType::Local(p) => match p.to_str().unwrap() == "/tmp" {
-                true => Ok(()),
-                false => Err("failed to parse /tmp as the path".to_string())
-            },
-            _ => Err("source not recognised as local".to_string())
+        if let Some(_) = c.sources[0].pre_provision {
+            return Err("unexpected pre_provision command".to_string())
+        }
+
+        match c.sources[0].path.to_str().unwrap() == "/tmp" {
+            true => Ok(()),
+            false => Err("failed to parse /tmp as the path".to_string())
         }
     }
 
@@ -434,33 +351,27 @@ mod tests {
     }
 
     #[test]
-    fn test_git_no_url_ko() -> Result<(), String> {
-        expected_error_raised("git_no_url", "missing url parameter")
+    fn test_non_string_pre_provision_ko() -> Result<(), String> {
+        expected_error_raised("non_string_pre_provision", "expected string for the pre_provision")
     }
 
     #[test]
-    fn test_git_non_string_url_ko() -> Result<(), String> {
-        expected_error_raised("git_non_string_url", "expected string for the url")
-    }
-
-    #[test]
-    fn test_git_invalid_url_ko() -> Result<(), String> {
-        /* TODO: write once git-parse-url is replaced */
-        Ok(())
-    }
-
-    #[test]
-    fn test_git_ok() -> Result<(), String> {
-        let c = expect_parse_ok("git_ok")?;
-        match c.sources[0].source_type {
-            SourceType::Git(_) => Ok(()), /* not testing git-url-parse */
-            _ => Err("source not recognised as git".to_string())
+    fn test_pre_provision_ok() -> Result<(), String> {
+        let c = expect_parse_ok("pre_provision_ok")?;
+        match &c.sources[0].pre_provision {
+            Some(s) => if s == "/bin/true" {
+                Ok(())
+            }
+            else {
+                Err("wrong pre_provision value".to_string())
+            },
+            None => Err("failed to parse pre_provision parameter".to_string())
         }
     }
 
     #[test]
     fn test_empty_ansible_playbook_ok() -> Result<(), String> {
-        let c = expect_parse_ok("git_ok")?;
+        let c = expect_parse_ok("local_ok")?;
 
         if let Some(_) = c.ansible.path {
             return Err("stored an ansible-playbook as the default".to_string())

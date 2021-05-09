@@ -1,5 +1,4 @@
 sources:
   foo:
-    type: "local"
     path: "/tmp"
     recurse: true

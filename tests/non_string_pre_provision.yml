@@ -1,3 +1,4 @@
 sources:
   foo:
     path: "/tmp"
+    pre_provision: 42

@@ -1,6 +1,5 @@
 sources:
   foo:
-    type: "local"
     path: "/tmp"
 
 ansible_playbook:

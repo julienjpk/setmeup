@@ -78,7 +78,7 @@ You may then grant access to the `smu` user as you would to any other user (`/va
 If you'd like to force the `smu` user to use SMU and not run anything else on your system, I suggest adding this to your SSH server configuration:
 
 	# /etc/ssh/sshd_config
-	
+
 	Match User smu
 	    ForceCommand /usr/local/bin/setmeup
 
@@ -108,18 +108,11 @@ The configuration file itself is [YAML](https://yaml.org/).
 	# sources
 	sources:
 	  some_local_source:
-        type: "local"
 	    path: "/etc/setmeup/playbooks"
-	  
-	  some_other_local_source:
-	    type = "local"
-	    path = "~/playbooks"
-	    playbook_match = "\.playbook\.yml$"
-		
+
 	  some_git_repository:
-	    type: "git"
-	    url: "https://gitlab.com/julienjpk/my-ansible-playbooks"
 	    path: "~/some_git_repository"
+        pre_provision: "git pull"
 
 	ansible_playbook:
 	  path "/usr/bin/ansible-playbook"
@@ -130,16 +123,11 @@ The configuration file itself is [YAML](https://yaml.org/).
 	    - name: "ANSIBLE_ROLES_PATH"
 	      value: "~/roles"
 
-Git sources are useful if you maintain your Ansible setup this way.
-The repository is cloned every time a client needs provisioning, unless `path` is set (in which case it is pulled).
-
-> If your Git repositories are private or hosted on NAT-ed servers, fear not: SMU uses the `git` binary to clone or pull.
-> This means whatever settings you have in `~/.ssh/config` will be taken into account.
-
-Whichever source type you use, SMU then looks for Ansible playbooks in the top-level directory without recursing, unless both `recurse` and `playbook_match` are set.
+SMU looks for Ansible playbooks in the each source's top-level directory without recursing, unless both `recurse` and `playbook_match` are set.
 The `playbook_match` setting can also be used on its own: it dictates which paths should be seen as playbooks (in the top-level directory then).
 The REGEX is matched against the file path relative to the source's root, which means you can match through subdirectories.
 When those parameters are unset, SMU treats every top-level YAML file (`\.ya?ml$`) as a playbook.
+Finally, the `pre_provision` parameter can be set to have a command run before provisioning a client.
 
 
 ## About

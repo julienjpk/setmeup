@@ -1,4 +1,0 @@
-sources:
-  foo:
-    type: "git"
-    url: 42

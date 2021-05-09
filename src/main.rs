@@ -16,6 +16,9 @@
 
 mod sources;
 mod config;
+mod setup;
+mod ssh;
+mod util;
 
 use clap::{Arg, App};
 
@@ -27,10 +30,20 @@ fn main() {
         .arg(Arg::with_name("config").short("c").value_name("FILE").takes_value(true))
         .get_matches();
 
-    let smu_config = match config::Config::locate_and_parse(options) {
+    /* Locate, parse and validate the configuration file */
+    let run_config = match config::Config::locate_and_parse(options) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Failed to parse configuration: {}", e);
+            util::error(&format!("Failed to parse configuration: {}", e));
+            std::process::exit(1);
+        }
+    };
+
+    /* Prompt the user for a port and generate a keypair */
+    let client_config = match setup::Setup::prompt() {
+        Ok(s) => s,
+        Err(e) => {
+            util::error(&format!("Failed to set up the exchange: {}", e));
             std::process::exit(1);
         }
     };

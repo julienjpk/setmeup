@@ -191,6 +191,13 @@ impl Default for AnsibleContext {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use ctor::*;
+
+    #[ctor]
+    fn init() {
+        /* Making sure we don't stumble across an actual config file */
+        std::env::set_var("XDG_CONFIG_HOME", "/nonexistent");
+    }
 
     use std::path::PathBuf;
     use clap::{App, Arg};
@@ -258,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_invalid_yaml_ko() -> Result<(), String> {
-        expected_error_raised("invalid", "") // not testing yaml-rust, I just want an error
+        expected_error_raised("invalid", "") /* not testing yaml-rust, I just want an error */
     }
 
     #[test]

@@ -17,6 +17,7 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+#[cfg(not(tarpaulin_include))]
 pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
     print!("{} ", invite);
     std::io::stdout().flush().map_err(|e| format!("failed to converse: {}", e))?;
@@ -25,6 +26,7 @@ pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(tarpaulin_include))]
 fn highlight(msg: &str, color: Color) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     stdout.set_color(ColorSpec::new().set_fg(Some(color)).set_bold(true)).ok();
@@ -32,10 +34,12 @@ fn highlight(msg: &str, color: Color) {
     stdout.reset().ok();
 }
 
+#[cfg(not(tarpaulin_include))]
 pub fn error(msg: &str) {
     highlight(msg, Color::Red);
 }
 
+#[cfg(not(tarpaulin_include))]
 pub fn important(msg: &str) {
     highlight(msg, Color::Cyan);
 }

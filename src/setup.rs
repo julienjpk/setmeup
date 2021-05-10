@@ -31,6 +31,7 @@ pub struct Setup {
     pub credentials: SSHCredentials
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Setup {
     pub fn prompt() -> Result<Self, String> {
         let reverse_port = Self::prompt_port()?;

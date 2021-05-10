@@ -17,6 +17,7 @@
 use ssh2::Session;
 use osshkeys::KeyPair;
 
+#[cfg(not(tarpaulin_include))]
 pub fn test_credentials(local_port: u16, username: &String, keypair: &KeyPair) -> Result<(), String> {
     let tcp = std::net::TcpStream::connect(format!("127.0.0.1:{}", local_port))
         .map_err(|e| format!("failed to connect via local port {}: {}", local_port, e))?;

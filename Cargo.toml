@@ -13,4 +13,8 @@ faccess = "0.2.3"
 osshkeys = "0.5.0"
 ssh2 = "0.9.1"
 termcolor = "1.1.2"
+walkdir = "2.3.2"
 
+[dev-dependencies]
+ctor = "0.1.20"
+array_tool = "1.0.3"

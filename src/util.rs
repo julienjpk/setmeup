@@ -15,7 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 use std::io::Write;
+use std::ops::Deref;
+use std::collections::HashMap;
+use std::path::Path;
+use std::process::{Command, Stdio};
+
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
 
 #[cfg(not(tarpaulin_include))]
 pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
@@ -42,4 +48,54 @@ pub fn error(msg: &str) {
 #[cfg(not(tarpaulin_include))]
 pub fn important(msg: &str) {
     highlight(msg, Color::Cyan);
+}
+
+
+pub fn exec(program: &str, args: &Vec<String>, working_dir: &Path,
+            env: Option<&HashMap<String, String>>, quiet: bool) -> Result<(), String> {
+    let mut command = Command::new(program);
+
+    command.args(args)
+        .stdin(Stdio::null())
+        .current_dir(working_dir);
+
+    if let Some(e) = env {
+        command.envs(e);
+    }
+
+    match quiet {
+        true => command.stdout(Stdio::null()).stderr(Stdio::null()),
+        false => command.stdout(Stdio::piped()).stderr(Stdio::piped())
+    };
+
+    match command.output() {
+        Ok(o) => match o.status.success() {
+            true => Ok(()),
+            false => {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                let report = format!(
+                    "{}\n\n{}",
+                    match stdout.len() {
+                        0 => "<nothing on stdout>",
+                        _ => stdout.deref()
+                    },
+                    match stderr.len() {
+                        0 => "<nothing on stderr>",
+                        _ => stderr.deref()
+                    }
+                );
+
+                Err(format!("failed to run {} {}:\n\n{}", program, args.join(" "), report))
+            }
+        },
+        Err(e) => Err(format!("failed to spawn {}: {}", program, e))
+    }
+}
+
+pub fn shell(cmdline: &String, working_dir: &Path,
+             env: Option<&HashMap<String, String>>, quiet: bool) -> Result<(), String> {
+    let executable = std::env::var("SHELL").unwrap_or(String::from("/bin/sh"));
+    let args = vec![String::from("-c"), cmdline.clone()];
+    exec(&executable, &args, working_dir, env, quiet)
 }

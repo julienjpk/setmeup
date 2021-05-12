@@ -14,6 +14,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+use crate::util;
+
 use std::path::PathBuf;
 use std::collections::HashMap;
 
@@ -152,6 +154,13 @@ impl Source {
         ))
     }
 
+    pub fn update(&self) -> Result<(), String> {
+        match &self.pre_provision {
+            Some(c) => util::shell(&c, self.path.as_path(), None, true),
+            None => Ok(())
+        }
+    }
+
     pub fn explore(&self) -> Vec<PathBuf> {
         let walker = WalkDir::new(&self.path);
         let walker = match self.recurse {
@@ -172,6 +181,7 @@ impl Source {
 mod tests {
     use super::*;
     use array_tool::vec::Intersect;
+    use std::io::ErrorKind;
 
     fn get_source_path(name: &str) -> PathBuf {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR unset");
@@ -283,5 +293,73 @@ mod tests {
                                  None,
                                  AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml", "depth2/depth1/playbook3.yml"])
+    }
+
+    #[test]
+    fn pre_provision_none() -> Result<(), String> {
+        let source = Source::new(String::from("root_only"),
+                                 get_source_path("root_only"),
+                                 false,
+                                 Regex::new(DEFAULT_MATCH).unwrap(),
+                                 None,
+                                 AnsibleContext::default());
+
+        source.update().map_err(|e| format!("unexpected error when nothing should have happened: {}", e))
+    }
+
+    #[test]
+    fn pre_provision_wrong_command() -> Result<(), String> {
+        let source = Source::new(String::from("root_only"),
+                                 get_source_path("root_only"),
+                                 false,
+                                 Regex::new(DEFAULT_MATCH).unwrap(),
+                                 Some(String::from("nonexistent")),
+                                 AnsibleContext::default());
+
+        match source.update() {
+            Ok(_) => Err("update succeeded with a non-existent command".to_string()),
+            Err(_) => Ok(())
+        }
+    }
+
+    #[test]
+    fn pre_provision_failing_command() -> Result<(), String> {
+        let source = Source::new(String::from("root_only"),
+                                 get_source_path("root_only"),
+                                 false,
+                                 Regex::new(DEFAULT_MATCH).unwrap(),
+                                 Some(String::from("/bin/false")),
+                                 AnsibleContext::default());
+
+        match source.update() {
+            Ok(_) => Err("update succeeded with a failing command".to_string()),
+            Err(_) => Ok(())
+        }
+    }
+
+    #[test]
+    fn pre_provision_ok() -> Result<(), String> {
+        let mut temp_path = std::env::temp_dir();
+        temp_path.push("setmeup_test_pre_provision_ok");
+
+        if let Err(e) = std::fs::remove_file(temp_path.as_path()) {
+            match e.kind() {
+                ErrorKind::NotFound => (),
+                _ => return Err(format!("failed to remove the temporary file before the test: {}", e))
+            }
+        };
+
+        let source = Source::new(String::from("root_only"),
+                                 get_source_path("root_only"),
+                                 false,
+                                 Regex::new(DEFAULT_MATCH).unwrap(),
+                                 Some(format!("> {}", temp_path.to_str().unwrap())),
+                                 AnsibleContext::default());
+
+        match source.update() {
+            Ok(_) => std::fs::remove_file(temp_path)
+                .map_err(|e| format!("failed to remove the temporary after the test: {}", e)),
+            Err(e) => Err(format!("failed to update the source: {}", e))
+        }
     }
 }

@@ -1,6 +1,5 @@
 sources:
   foo:
     path: "/tmp"
-
-ansible_playbook:
-  env: 42
+    ansible_playbook:
+      env: 42

@@ -15,11 +15,75 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 use yaml_rust::Yaml;
 use regex::Regex;
 use faccess::PathExt;
 use walkdir::WalkDir;
+
+
+/// Parameters to use when invoking ansible-playbook
+pub struct AnsibleContext {
+    pub path: Option<PathBuf>,
+    pub args: Vec<String>,
+    pub env: HashMap<String, String>
+}
+
+impl AnsibleContext {
+    /// Handles parsing the path to ansible-playbook as well as the args and env we should use
+    fn parse(yaml: &Yaml) -> Result<AnsibleContext, String> {
+        Ok(Self {
+            path: match &yaml["path"] {
+                Yaml::BadValue => None,
+                Yaml::String(s) => {
+                    let path = PathBuf::from(s);
+                    match path.is_file() && path.executable() {
+                        true => Some(path),
+                        false => return Err(format!("no executable ansible-playbook at {}", path.to_str().unwrap()))
+                    }
+                },
+                _ => return Err("expected string for the ansible-playbook path".to_string())
+            },
+
+            args: match &yaml["args"] {
+                Yaml::BadValue => vec!(),
+                Yaml::Array(v) => v.iter().map(|a| match a.as_str() {
+                    Some(s) => Ok(String::from(s)),
+                    None => Err("expected strings as arguments to ansible-playbook".to_string())
+                }).collect::<Result<Vec<String>, String>>()?,
+                _ => return Err("expected list for the ansible-playbook args".to_string())
+            },
+
+            env: match &yaml["env"] {
+                Yaml::BadValue => HashMap::new(),
+                Yaml::Array(a) => a.iter().map(|i| Ok((
+                    match &i["name"] {
+                        Yaml::String(s) => String::from(s),
+                        Yaml::BadValue => return Err("missing name property for environment variable".to_string()),
+                        _ => return Err("non-string name property for environment variable".to_string())
+                    },
+                    match &i["value"] {
+                        Yaml::String(s) => String::from(s),
+                        Yaml::BadValue => return Err("missing value property for environment variable".to_string()),
+                        _ => return Err("non-string value property for environment variable".to_string())
+                    }))).collect::<Result<HashMap<String, String>, String>>()?,
+                _ => return Err("expected list for the ansible-playbook environment".to_string())
+            }
+        })
+    }
+}
+
+impl Default for AnsibleContext {
+    /// Defaults for when no ansible_playbook block is given
+    fn default() -> Self {
+        Self {
+            path: None,
+            args: vec!(),
+            env: HashMap::new()
+        }
+    }
+}
 
 
 /// A playbook source
@@ -28,15 +92,17 @@ pub struct Source {
     pub path: PathBuf,
     pub recurse: bool,
     pub playbook_match: Regex,
-    pub pre_provision: Option<String>
+    pub pre_provision: Option<String>,
+    pub ansible: AnsibleContext
 }
 
 const DEFAULT_MATCH: &str = r#"\.ya?ml$"#;
 
 impl Source {
     fn new(name: String, path: PathBuf, recurse: bool,
-           playbook_match: Regex, pre_provision: Option<String>) -> Self {
-        Self { name, path, recurse, playbook_match, pre_provision }
+           playbook_match: Regex, pre_provision: Option<String>,
+           ansible: AnsibleContext) -> Self {
+        Self { name, path, recurse, playbook_match, pre_provision, ansible }
     }
 
     /// Parses YAML for a playbook source
@@ -74,6 +140,14 @@ impl Source {
                 Yaml::String(s) => Some(s.clone()),
                 Yaml::BadValue => None,
                 _ => return Err("expected string for the pre_provision source parameter".to_string())
+            },
+
+            match &yaml["ansible_playbook"].as_hash() {
+                Some(_) => match AnsibleContext::parse(&yaml["ansible_playbook"]) {
+                    Ok(a) => a,
+                    Err(e) => return Err(e)
+                },
+                None => AnsibleContext::default()
             }
         ))
     }
@@ -121,7 +195,8 @@ mod tests {
                                     get_source_path("nonexistent"),
                                     false,
                                     Regex::new(DEFAULT_MATCH).unwrap(),
-                                    None).explore();
+                                    None,
+                                    AnsibleContext::default()).explore();
 
         match playbooks.len() {
             0 => Ok(()),
@@ -135,7 +210,8 @@ mod tests {
                                     get_source_path("empty"),
                                     false,
                                     Regex::new(DEFAULT_MATCH).unwrap(),
-                                    None).explore();
+                                    None,
+                                    AnsibleContext::default()).explore();
 
         match playbooks.len() {
             0 => Ok(()),
@@ -149,7 +225,8 @@ mod tests {
                                  get_source_path("root_only"),
                                  false,
                                  Regex::new(DEFAULT_MATCH).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml", "playbook2.yaml"])
     }
 
@@ -159,7 +236,8 @@ mod tests {
                                  get_source_path("with_depth"),
                                  false,
                                  Regex::new(DEFAULT_MATCH).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml"])
     }
 
@@ -169,7 +247,8 @@ mod tests {
                                  get_source_path("with_depth"),
                                  true,
                                  Regex::new(DEFAULT_MATCH).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml", "depth1/playbook2.yml", "depth2/depth1/playbook3.yml"])
     }
 
@@ -179,7 +258,8 @@ mod tests {
                                  get_source_path("root_only"),
                                  false,
                                  Regex::new(r#"nomatch"#).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec![])
     }
 
@@ -189,7 +269,8 @@ mod tests {
                                  get_source_path("root_only"),
                                  false,
                                  Regex::new(r#"\.yml$"#).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml"])
     }
 
@@ -199,7 +280,8 @@ mod tests {
                                  get_source_path("with_depth"),
                                  true,
                                  Regex::new(r#"playbook{1,3}"#).unwrap(),
-                                 None);
+                                 None,
+                                 AnsibleContext::default());
         expect_playbooks(source, vec!["playbook1.yml", "depth2/depth1/playbook3.yml"])
     }
 }

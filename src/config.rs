@@ -16,13 +16,12 @@
 
 use crate::sources::*;
 
-use std::collections::HashMap;
 use std::path::{PathBuf, Path};
 
 use clap::ArgMatches;
 use directories::{ProjectDirs, BaseDirs, UserDirs};
-use yaml_rust::{Yaml, YamlLoader};
-use faccess::PathExt;
+use yaml_rust::YamlLoader;
+
 
 /// Returns a (ordered) vector of possible locations for the configuration file
 fn get_default_locations() -> Vec<PathBuf> {
@@ -72,17 +71,9 @@ fn infer_configuration_path(args: ArgMatches) -> Result<PathBuf, ()> {
 }
 
 
-/// Parameters to use when invoking ansible-playbook
-pub struct AnsibleContext {
-    path: Option<PathBuf>,
-    args: Vec<String>,
-    env: HashMap<String, String>
-}
-
 /// Set Me Up! configuration structure
 pub struct Config {
-    pub sources: Vec<Source>,
-    pub ansible: AnsibleContext
+    pub sources: Vec<Source>
 }
 
 impl Config {
@@ -117,72 +108,8 @@ impl Config {
                     None => return Err("expected string as source name".to_string())
                 }), &v)).collect::<Result<Vec<Source>, String>>()?,
                 None => return Err("missing or empty sources".to_string())
-            },
-
-            ansible: match yaml[0]["ansible_playbook"].as_hash() {
-                Some(_) => match AnsibleContext::parse(&yaml[0]["ansible_playbook"]) {
-                    Ok(a) => a,
-                    Err(e) => return Err(e)
-                },
-                None => AnsibleContext::default()
             }
         })
-    }
-}
-
-
-impl AnsibleContext {
-    /// Handles parsing the path to ansible-playbook as well as the args and env we should use
-    fn parse(yaml: &Yaml) -> Result<AnsibleContext, String> {
-        Ok(Self {
-            path: match &yaml["path"] {
-                Yaml::BadValue => None,
-                Yaml::String(s) => {
-                    let path = PathBuf::from(s);
-                    match path.is_file() && path.executable() {
-                        true => Some(path),
-                        false => return Err(format!("no executable ansible-playbook at {}", path.to_str().unwrap()))
-                    }
-                },
-                _ => return Err("expected string for the ansible-playbook path".to_string())
-            },
-
-            args: match &yaml["args"] {
-                Yaml::BadValue => vec!(),
-                Yaml::Array(v) => v.iter().map(|a| match a.as_str() {
-                    Some(s) => Ok(String::from(s)),
-                    None => Err("expected strings as arguments to ansible-playbook".to_string())
-                }).collect::<Result<Vec<String>, String>>()?,
-                _ => return Err("expected list for the ansible-playbook args".to_string())
-            },
-
-            env: match &yaml["env"] {
-                Yaml::BadValue => HashMap::new(),
-                Yaml::Array(a) => a.iter().map(|i| Ok((
-                    match &i["name"] {
-                        Yaml::String(s) => String::from(s),
-                        Yaml::BadValue => return Err("missing name property for environment variable".to_string()),
-                        _ => return Err("non-string name property for environment variable".to_string())
-                    },
-                    match &i["value"] {
-                        Yaml::String(s) => String::from(s),
-                        Yaml::BadValue => return Err("missing value property for environment variable".to_string()),
-                        _ => return Err("non-string value property for environment variable".to_string())
-                    }))).collect::<Result<HashMap<String, String>, String>>()?,
-                _ => return Err("expected list for the ansible-playbook environment".to_string())
-            }
-        })
-    }
-}
-
-impl Default for AnsibleContext {
-    /// Defaults for when no ansible_playbook block is given
-    fn default() -> Self {
-        Self {
-            path: None,
-            args: vec!(),
-            env: HashMap::new()
-        }
     }
 }
 
@@ -380,15 +307,15 @@ mod tests {
     fn test_empty_ansible_playbook_ok() -> Result<(), String> {
         let c = expect_parse_ok("local_ok")?;
 
-        if let Some(_) = c.ansible.path {
+        if let Some(_) = c.sources[0].ansible.path {
             return Err("stored an ansible-playbook as the default".to_string())
         }
 
-        if c.ansible.args.len() > 0 {
+        if c.sources[0].ansible.args.len() > 0 {
             return Err("stored ansible-playbook args as defaults".to_string())
         }
 
-        if c.ansible.env.len() > 0 {
+        if c.sources[0].ansible.env.len() > 0 {
             return Err("stored environment variables as defaults".to_string())
         }
 
@@ -413,7 +340,7 @@ mod tests {
     #[test]
     fn test_ansible_playbook_path_ok() -> Result<(), String> {
         let c = expect_parse_ok("ansible_playbook_path")?;
-        match c.ansible.path {
+        match &c.sources[0].ansible.path {
             Some(p) => match p.to_str().unwrap() {
                 "/bin/true" => Ok(()),
                 _ => Err("parsed the wrong ansible-playbook path".to_string())
@@ -435,12 +362,13 @@ mod tests {
     #[test]
     fn test_ansible_playbook_args_ok() -> Result<(), String> {
         let c = expect_parse_ok("ansible_playbook_args")?;
-        match c.ansible.args.len() {
-            2 => match c.ansible.args[0] == "arg1" && c.ansible.args[1] == "arg2" {
+        match c.sources[0].ansible.args.len() {
+            2 => match c.sources[0].ansible.args[0] == "arg1" && c.sources[0].ansible.args[1] == "arg2" {
                 true => Ok(()),
-                false => Err(format!("failed to parse the args, got {} and {}", c.ansible.args[0], c.ansible.args[1]))
+                false => Err(format!("failed to parse the args, got {} and {}",
+                                     c.sources[0].ansible.args[0], c.sources[0].ansible.args[1]))
             },
-            _ => Err(format!("parsed {} arg(s) instead of 2", c.ansible.args.len()))
+            _ => Err(format!("parsed {} arg(s) instead of 2", c.sources[0].ansible.args.len()))
         }
     }
 
@@ -472,9 +400,9 @@ mod tests {
     #[test]
     fn test_ansible_playbook_env_ok() -> Result<(), String> {
         let c = expect_parse_ok("ansible_playbook_env")?;
-        match c.ansible.env.len() {
+        match c.sources[0].ansible.env.len() {
             1 => Ok(()),
-            _ => Err(format!("parsed {} environment variables instead of 1", c.ansible.env.len()))
+            _ => Err(format!("parsed {} environment variables instead of 1", c.sources[0].ansible.env.len()))
         }
     }
 }

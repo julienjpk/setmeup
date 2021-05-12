@@ -1,8 +1,7 @@
 sources:
   foo:
     path: "/tmp"
-
-ansible_playbook:
-  env:
-    - name: "name"
-      no_value: "value"
+    ansible_playbook:
+      env:
+        - name: "name"
+          no_value: "value"

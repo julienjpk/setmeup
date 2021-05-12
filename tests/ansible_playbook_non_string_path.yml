@@ -1,6 +1,5 @@
 sources:
   foo:
     path: "/tmp"
-
-ansible_playbook:
-  path: 42
+    ansible_playbook:
+      path: 42

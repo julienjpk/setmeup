@@ -1,7 +1,6 @@
 sources:
   foo:
     path: "/tmp"
-
-ansible_playbook:
-  args: ["test", 42]
+    ansible_playbook:
+      args: ["test", 42]
 

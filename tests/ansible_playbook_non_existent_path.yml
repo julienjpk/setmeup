@@ -1,6 +1,5 @@
 sources:
   foo:
     path: "/tmp"
-
-ansible_playbook:
-  path: "/tmp/i/hope/this/does/not/exist"
+    ansible_playbook:
+      path: "/tmp/i/hope/this/does/not/exist"

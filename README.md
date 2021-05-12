@@ -26,7 +26,7 @@ For the rest of this to work, you will then be guided through a little wizard:
    In the example above, this was 44561.
 2. Then, SMU will ask for a username to use on your machine.
    Depending on what you are provisioning, you might need to provide a sudoer here.
-3. Finally, SMU will send you the public end of an ED25519 key pair.
+3. Finally, SMU will send you the public end of an ECDSA key pair.
    You will need to ensure this key pair can be used to login to your machine with the username provided above.
    Typically, this means adding the public key to that user's `~/.ssh/authorized_keys`.
 
@@ -105,29 +105,31 @@ The rest are what I believe to be sensible defaults.
 
 The configuration file itself is [YAML](https://yaml.org/).
 
-	# sources
 	sources:
 	  some_local_source:
 	    path: "/etc/setmeup/playbooks"
+        playbook_match: "^public/.+\.ya?ml$"
 
 	  some_git_repository:
 	    path: "~/some_git_repository"
+        recurse: yes
         pre_provision: "git pull"
+        ansible_playbook:
+	      path "/usr/local/bin/ansible-playbook"
+	      args: ["--vault-password-file", "secrets.vault"]
+	      env:
+	        - name: "ANSIBLE_CONFIG"
+	          value: "ansible.cfg"
+	        - name: "ANSIBLE_ROLES_PATH"
+	          value: "roles"
 
-	ansible_playbook:
-	  path "/usr/bin/ansible-playbook"
-	  args: ["--vault-password-file", "~/secrets.vault"]
-	  env:
-	    - name: "ANSIBLE_CONFIG"
-	      value: "~/ansible.cfg"
-	    - name: "ANSIBLE_ROLES_PATH"
-	      value: "~/roles"
-
-SMU looks for Ansible playbooks in the each source's top-level directory without recursing, unless both `recurse` and `playbook_match` are set.
-The `playbook_match` setting can also be used on its own: it dictates which paths should be seen as playbooks (in the top-level directory then).
+SMU looks for Ansible playbooks (`\.ya?ml$`) in each source's top-level directory without recursing, unless `recurse` is set.
+The `playbook_match` setting can be used to set a different REGEX if necessary.
 The REGEX is matched against the file path relative to the source's root, which means you can match through subdirectories.
-When those parameters are unset, SMU treats every top-level YAML file (`\.ya?ml$`) as a playbook.
+You may also use the `ansible_playbook` dictionary to customise how `ansible-playbook` will be called for each source.
+Note that SMU will always run `ansible-playbook` from your sources' root directories.
 Finally, the `pre_provision` parameter can be set to have a command run before provisioning a client.
+This is useful if your source is a git repository and you'd like it updated before your playbooks are looked up.
 
 
 ## About

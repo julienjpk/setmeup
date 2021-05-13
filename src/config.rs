@@ -311,10 +311,6 @@ mod tests {
             return Err("stored an ansible-playbook as the default".to_string())
         }
 
-        if c.sources[0].ansible.args.len() > 0 {
-            return Err("stored ansible-playbook args as defaults".to_string())
-        }
-
         if c.sources[0].ansible.env.len() > 0 {
             return Err("stored environment variables as defaults".to_string())
         }
@@ -346,29 +342,6 @@ mod tests {
                 _ => Err("parsed the wrong ansible-playbook path".to_string())
             },
             None => Err("failed to parse the ansible-playbook path".to_string())
-        }
-    }
-
-    #[test]
-    fn test_ansible_playbook_non_list_args_ko() -> Result<(), String> {
-        expected_error_raised("ansible_playbook_non_list_args", "expected list for the ansible-playbook args")
-    }
-
-    #[test]
-    fn test_ansible_playbook_non_string_arg_ko() -> Result<(), String> {
-        expected_error_raised("ansible_playbook_non_string_arg", "expected strings as arguments")
-    }
-
-    #[test]
-    fn test_ansible_playbook_args_ok() -> Result<(), String> {
-        let c = expect_parse_ok("ansible_playbook_args")?;
-        match c.sources[0].ansible.args.len() {
-            2 => match c.sources[0].ansible.args[0] == "arg1" && c.sources[0].ansible.args[1] == "arg2" {
-                true => Ok(()),
-                false => Err(format!("failed to parse the args, got {} and {}",
-                                     c.sources[0].ansible.args[0], c.sources[0].ansible.args[1]))
-            },
-            _ => Err(format!("parsed {} arg(s) instead of 2", c.sources[0].ansible.args.len()))
         }
     }
 

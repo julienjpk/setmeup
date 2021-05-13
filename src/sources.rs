@@ -28,7 +28,6 @@ use walkdir::WalkDir;
 /// Parameters to use when invoking ansible-playbook
 pub struct AnsibleContext {
     pub path: Option<PathBuf>,
-    pub args: Vec<String>,
     pub env: HashMap<String, String>
 }
 
@@ -46,15 +45,6 @@ impl AnsibleContext {
                     }
                 },
                 _ => return Err("expected string for the ansible-playbook path".to_string())
-            },
-
-            args: match &yaml["args"] {
-                Yaml::BadValue => vec!(),
-                Yaml::Array(v) => v.iter().map(|a| match a.as_str() {
-                    Some(s) => Ok(String::from(s)),
-                    None => Err("expected strings as arguments to ansible-playbook".to_string())
-                }).collect::<Result<Vec<String>, String>>()?,
-                _ => return Err("expected list for the ansible-playbook args".to_string())
             },
 
             env: match &yaml["env"] {
@@ -81,7 +71,6 @@ impl Default for AnsibleContext {
     fn default() -> Self {
         Self {
             path: None,
-            args: vec!(),
             env: HashMap::new()
         }
     }

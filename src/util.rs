@@ -75,7 +75,7 @@ pub fn iter_prompt_index<I: Iterator<Item=impl Display>>(iter: I) -> Result<usiz
 
 
 pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
-            env: Option<&HashMap<String, String>>, tty: bool, quiet: bool) -> Result<(), String> {
+            env: Option<&HashMap<String, String>>, tty: bool) -> Result<(), String> {
     let mut command = Command::new(program);
 
     command.args(args).current_dir(working_dir);
@@ -94,12 +94,7 @@ pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
         }
     }
     else {
-        match quiet {
-            true => command.stdout(Stdio::null()).stderr(Stdio::null()),
-            false => command.stdout(Stdio::piped()).stderr(Stdio::piped())
-        };
-
-        command.stdin(Stdio::null());
+        command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
 
         match command.output() {
             Ok(o) => match o.status.success() {
@@ -128,8 +123,8 @@ pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
 }
 
 pub fn shell(cmdline: &String, working_dir: &Path,
-             env: Option<&HashMap<String, String>>, quiet: bool) -> Result<(), String> {
+             env: Option<&HashMap<String, String>>) -> Result<(), String> {
     let executable = std::env::var("SHELL").unwrap_or(String::from("/bin/sh"));
     let args = vec!["-c", &cmdline];
-    exec(&executable, args, working_dir, env, false, quiet)
+    exec(&executable, args, working_dir, env, false)
 }

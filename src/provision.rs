@@ -88,8 +88,7 @@ impl<'a> Provision<'a> {
             ),
             self.source.path.as_path(),
             Some(&self.source.ansible.env),
-            true,
-            false
+            true
         )
     }
 }

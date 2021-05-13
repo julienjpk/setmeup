@@ -146,7 +146,7 @@ impl Source {
 
     pub fn update(&self) -> Result<(), String> {
         match &self.pre_provision {
-            Some(c) => util::shell(&c, self.path.as_path(), None, true),
+            Some(c) => util::shell(&c, self.path.as_path(), None),
             None => Ok(())
         }
     }

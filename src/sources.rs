@@ -166,6 +166,7 @@ impl Source {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)

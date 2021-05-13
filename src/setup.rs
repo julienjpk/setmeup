@@ -60,7 +60,7 @@ impl Setup {
                     true => return Ok(p),
                     false => util::error(&format!("Port is not bound locally: {}", p))
                 }
-                Err(e) => util::error(&format!("Invalid port specification: {}: {}", input, e))
+                Err(e) => util::error(&format!("Invalid port specification \"{}\" ({})", input, e))
             }
         }
     }

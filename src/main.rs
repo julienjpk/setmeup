@@ -42,7 +42,7 @@ fn main() {
         }
     };
 
-    println!("Welcome to Set Me Up!");
+    util::success("Welcome to Set Me Up!");
     if ! atty::is(Stream::Stdin) {
         util::error("Set Me Up! is running without a TTY!\n\
                      This will make it impossible for ansible-playbook to hide your become password as you type it.\n\
@@ -68,7 +68,7 @@ fn main() {
     };
 
     match provisioner.execute() {
-        Ok(_) => println!("\nProvisioning complete!"),
+        Ok(_) => util::success("Provisioning complete!"),
         Err(e) => {
             util::error(&format!("Provisioning error: {}", e));
             std::process::exit(1);

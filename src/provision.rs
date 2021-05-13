@@ -33,6 +33,7 @@ pub struct Provision<'a> {
     playbook_path: PathBuf
 }
 
+#[cfg(not(tarpaulin_include))]
 impl<'a> Provision<'a> {
     pub fn prompt(config: &'a Config, setup: &'a Setup) -> Result<Self, String> {
         println!("Here are the available provisioning sources:\n");

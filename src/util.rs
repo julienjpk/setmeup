@@ -35,7 +35,7 @@ pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
 
 #[cfg(not(tarpaulin_include))]
 fn highlight(msg: &str, color: Option<Color>) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     stdout.set_color(ColorSpec::new().set_fg(color).set_bold(true)).ok();
     println!("{}", msg);
     stdout.reset().ok();
@@ -43,7 +43,7 @@ fn highlight(msg: &str, color: Option<Color>) {
 
 #[cfg(not(tarpaulin_include))]
 pub fn error(msg: &str) {
-    print!("\n");
+    print!("\n/!\\ ");
     highlight(msg, Some(Color::Red));
     print!("\n");
 }
@@ -53,6 +53,11 @@ pub fn important(msg: &str) {
     print!("\n");
     highlight(msg, Some(Color::Cyan));
     print!("\n");
+}
+
+#[cfg(not(tarpaulin_include))]
+pub fn success(msg: &str) {
+    highlight(msg, Some(Color::Green));
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -90,7 +95,7 @@ pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
                 true => Ok(()),
                 false => Err(format!("{} exited with non-zero status code {}", program, s))
             },
-            Err(e) => Err(format!("failed to spawn {}: {}", program, e))
+            Err(e) => Err(format!("failed to spawn process: {}", e))
         }
     }
     else {
@@ -117,7 +122,7 @@ pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
                     Err(format!("failed to run {}:\n\n{}", program, report))
                 }
             },
-            Err(e) => Err(format!("failed to spawn {}: {}", program, e))
+            Err(e) => Err(format!("failed to spawn process: {}", e))
         }
     }
 }

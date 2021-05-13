@@ -58,7 +58,7 @@ Set Me Up! is written in Rust. Downloading, compiling, testing and installing go
 How you set up SMU on your server is really up to you.
 If your clients already have accounts on your server, they may use those to run SMU:
 
-	$ ssh -R 0:localhost:22 bob@smu-server.tld setmeup
+	$ ssh -tR 0:localhost:22 bob@smu-server.tld setmeup
 
 **In that scenario, no further setup is required for client access.**
 

@@ -14,13 +14,16 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+mod provision;
 mod sources;
 mod config;
 mod setup;
-mod ssh;
 mod util;
+mod ssh;
 
 use clap::{Arg, App};
+use atty::Stream;
+
 
 #[cfg(not(tarpaulin_include))]
 fn main() {
@@ -39,7 +42,14 @@ fn main() {
         }
     };
 
-    /* Prompt the user for a port and generate a keypair */
+    println!("Welcome to Set Me Up!");
+    if ! atty::is(Stream::Stdin) {
+        util::error("Set Me Up! is running without a TTY!\n\
+                     This will make it impossible for ansible-playbook to hide your become password as you type it.\n\
+                     Make sure you use -t when connecting to the SMU server");
+    }
+
+    /* Prompt the user about the port, username and key */
     let client_config = match setup::Setup::prompt() {
         Ok(s) => s,
         Err(e) => {
@@ -47,4 +57,21 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    /* Prepare and execute provisioning */
+    let provisioner = match provision::Provision::prompt(&run_config, &client_config) {
+        Ok(p) => p,
+        Err(e) => {
+            util::error(&format!("Failed to prepare for provisioning: {}", e));
+            std::process::exit(1);
+        }
+    };
+
+    match provisioner.execute() {
+        Ok(_) => println!("\nProvisioning complete!"),
+        Err(e) => {
+            util::error(&format!("Provisioning error: {}", e));
+            std::process::exit(1);
+        }
+    }
 }

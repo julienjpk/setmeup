@@ -15,7 +15,7 @@ The idea is:
 
 On the client you would like to provision, simply connect to the SMU server with:
 
-	$ ssh -R 0:localhost:22 smu@smu-server.tld
+	$ ssh -tR 0:localhost:22 smu@smu-server.tld
 	Allocated port 44561 for remote forward to localhost:22
 	Welcome to Set Me Up!
 

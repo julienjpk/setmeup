@@ -14,6 +14,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+
+//! Miscellaneous utility functions (user prompting, display, external processes)
+
+
 use std::io::Write;
 use std::ops::Deref;
 use std::fmt::Display;
@@ -24,6 +28,7 @@ use std::process::{Command, Stdio};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 
+/// Prompts the user for a value on stdin
 #[cfg(not(tarpaulin_include))]
 pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
     print!("{} ", invite);
@@ -33,6 +38,7 @@ pub fn prompt(invite: &str, buffer: &mut String) -> Result<(), String> {
     Ok(())
 }
 
+/// Prints a bold, possibly coloured message to stdout
 #[cfg(not(tarpaulin_include))]
 fn highlight(msg: &str, color: Option<Color>) {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
@@ -41,6 +47,7 @@ fn highlight(msg: &str, color: Option<Color>) {
     stdout.reset().ok();
 }
 
+/// Prints an error message in red
 #[cfg(not(tarpaulin_include))]
 pub fn error(msg: &str) {
     print!("\n/!\\ ");
@@ -48,6 +55,7 @@ pub fn error(msg: &str) {
     print!("\n");
 }
 
+/// Prints an important message in blue
 #[cfg(not(tarpaulin_include))]
 pub fn important(msg: &str) {
     print!("\n");
@@ -55,11 +63,13 @@ pub fn important(msg: &str) {
     print!("\n");
 }
 
+/// Prints a success message in green
 #[cfg(not(tarpaulin_include))]
 pub fn success(msg: &str) {
     highlight(msg, Some(Color::Green));
 }
 
+/// Prompts the user to pick an element by index from an iterator
 #[cfg(not(tarpaulin_include))]
 pub fn iter_prompt_index<I: Iterator<Item=impl Display>>(iter: I) -> Result<usize, String> {
     let length = iter.enumerate()
@@ -79,6 +89,7 @@ pub fn iter_prompt_index<I: Iterator<Item=impl Display>>(iter: I) -> Result<usiz
 }
 
 
+/// Executes the given program as an external process
 pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
             env: Option<&HashMap<String, String>>, tty: bool) -> Result<(), String> {
     let mut command = Command::new(program);
@@ -127,6 +138,7 @@ pub fn exec(program: &str, args: Vec<&str>, working_dir: &Path,
     }
 }
 
+/// Executes the given command-line through a shell in a new process
 pub fn shell(cmdline: &String, working_dir: &Path,
              env: Option<&HashMap<String, String>>) -> Result<(), String> {
     let executable = std::env::var("SHELL").unwrap_or(String::from("/bin/sh"));

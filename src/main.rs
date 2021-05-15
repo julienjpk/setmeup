@@ -14,17 +14,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+
+//! Set Me Up! (SMU) is a simple implementation of an Ansible-based provisioning server.
+
+
 mod provision;
 mod sources;
 mod config;
 mod setup;
 mod util;
-mod ssh;
 
 use clap::{Arg, App};
 use atty::Stream;
 
 
+/// Set Me Up! entry point
 #[cfg(not(tarpaulin_include))]
 fn main() {
     let options = App::new("Set Me Up!")

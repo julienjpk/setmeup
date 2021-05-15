@@ -15,7 +15,7 @@ The idea is:
 
 On the client you would like to provision, simply connect to the SMU server with:
 
-	$ ssh -tR 0:localhost:22 smu@smu-server.tld
+	$ ssh -R 0:localhost:22 smu@smu-server
 	Allocated port 44561 for remote forward to localhost:22
 	Welcome to Set Me Up!
 
@@ -51,14 +51,14 @@ Set Me Up! is written in Rust. Downloading, compiling, testing and installing go
 	$ cd setmeup
 	$ cargo test
 	$ cargo build --release
-	$ cargo install
+	$ sudo install -m 755 target/release/setmeup /usr/local/bin
 
 ### Setting up client access
 
 How you set up SMU on your server is really up to you.
 If your clients already have accounts on your server, they may use those to run SMU:
 
-	$ ssh -tR 0:localhost:22 bob@smu-server.tld setmeup
+	$ ssh -tR 0:localhost:22 bob@smu-server setmeup
 
 **In that scenario, no further setup is required for client access.**
 
@@ -67,6 +67,9 @@ If that is not the case, you may create an `smu` user for your clients to share.
 	# useradd -md /var/lib/setmeup -s /usr/local/bin/setmeup
 
 The `-s` option sets the shell to the SMU binary, which means people logging in as `smu` will start SMU by default.
+
+> This requires SMU to be added to /etc/shells
+
 The `smu` user also needs to have a home directory (`/var/lib/setmeup` here).
 
 > The user does not need to be called `smu`, if you don't like it. In fact, you can also create several users and set them up independently.
@@ -116,7 +119,6 @@ The configuration file itself is [YAML](https://yaml.org/).
         pre_provision: "git pull"
         ansible_playbook:
 	      path "/usr/local/bin/ansible-playbook"
-	      args: ["--vault-password-file", "secrets.vault"]
 	      env:
 	        - name: "ANSIBLE_CONFIG"
 	          value: "ansible.cfg"

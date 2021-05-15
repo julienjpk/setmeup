@@ -14,18 +14,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
-use crate::ssh;
+
+//! Prompts for the reverse port, the username and sets up key-based authentication
+
+
 use crate::util;
 
 use std::net::TcpListener;
 
 use osshkeys::{KeyPair, KeyType};
+use ssh2::Session;
 
+
+/// SSH credentials to the client: user and key pair
 pub struct SSHCredentials {
     pub username: String,
     pub keypair: KeyPair
 }
 
+/// Client setup parameters: a port number and credentials
 pub struct Setup {
     pub reverse_port: u16,
     pub credentials: SSHCredentials
@@ -33,12 +40,14 @@ pub struct Setup {
 
 #[cfg(not(tarpaulin_include))]
 impl Setup {
+    /// Prompts the client for a port and credentials
     pub fn prompt() -> Result<Self, String> {
         let reverse_port = Self::prompt_port()?;
         let credentials = Self::key_setup(reverse_port)?;
         Ok(Self { reverse_port, credentials })
     }
 
+    /// Checks if a client is locally bound
     fn port_is_bound(port: u16) -> bool {
         match TcpListener::bind(("127.0.0.1", port)) {
             Ok(_) => false,
@@ -49,6 +58,7 @@ impl Setup {
         }
     }
 
+    /// Prompts the client for the reverse forward port
     fn prompt_port() -> Result<u16, String> {
         loop {
             let mut input = String::new();
@@ -65,6 +75,29 @@ impl Setup {
         }
     }
 
+    /// Attempts to connect via SSH back to the client to check credentials
+    pub fn test_credentials(local_port: u16, username: &String, keypair: &KeyPair) -> Result<(), String> {
+        let tcp = std::net::TcpStream::connect(format!("127.0.0.1:{}", local_port))
+            .map_err(|e| format!("failed to connect via local port {}: {}", local_port, e))?;
+        let mut session = Session::new().map_err(|e| format!("failed to open session: {}", e))?;
+        session.set_tcp_stream(tcp);
+        session.handshake().map_err(|e| format!("handshake failed: {}", e))?;
+
+        let pem_privkey = keypair.serialize_pem(None)
+            .map_err(|e| format!("failed to encode private key: {}", e))?;
+
+        let result = session.userauth_pubkey_memory(
+            username,
+            None,
+            &pem_privkey,
+            None
+        ).map(|_| ()).map_err(|e| format!("{}", e));
+
+        session.disconnect(None, "setmeup authentication test complete", None).ok();
+        result
+    }
+
+    /// Prompts the client for a username and checks the key setup
     fn key_setup(port: u16) -> Result<SSHCredentials, String> {
         let keypair = KeyPair::generate(KeyType::ECDSA, 0).map_err(|e| format!("failed to generate keypair: {}", e))?;
         let keypair_str = keypair.serialize_publickey().map_err(|e| format!("failed to serialise keypair: {}", e))?.to_string();
@@ -85,7 +118,7 @@ impl Setup {
             util::important(&keypair_str);
             util::prompt("Press the Enter key where you are done:", &mut dummy)?;
 
-            match ssh::test_credentials(port, &username, &keypair) {
+            match Self::test_credentials(port, &username, &keypair) {
                 Ok(_) => return Ok(SSHCredentials { username, keypair }),
                 Err(e) => {
                     util::error(&format!("Authentication test failed: {}", e));

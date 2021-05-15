@@ -14,6 +14,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+
+//! Interacts with the client and actually provisions it
+
+
 use crate::sources::Source;
 use crate::config::Config;
 use crate::setup::Setup;
@@ -27,6 +31,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 
 
+/// Handles client interaction and triggers provisioning accordingly
 pub struct Provision<'a> {
     setup: &'a Setup,
     source: &'a Source,
@@ -35,6 +40,7 @@ pub struct Provision<'a> {
 
 #[cfg(not(tarpaulin_include))]
 impl<'a> Provision<'a> {
+    /// Prompts the client for a source and playbook
     pub fn prompt(config: &'a Config, setup: &'a Setup) -> Result<Self, String> {
         println!("Here are the available provisioning sources:\n");
         let source_index = util::iter_prompt_index(config.sources.iter())?;
@@ -55,6 +61,7 @@ impl<'a> Provision<'a> {
         })
     }
 
+    /// Runs ansible-playbook and provisions the client
     pub fn execute(&self) -> Result<(), String> {
         /* Put the key on disk */
         let mut keyfile = NamedTempFile::new().map_err(|e| format!("failed to ready the private key: {}", e))?;

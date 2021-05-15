@@ -14,6 +14,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+
+//! Parsing and updating logic for playbook sources
+
+
 use crate::util;
 
 use std::fmt::Display;
@@ -91,6 +95,7 @@ pub struct Source {
 const DEFAULT_MATCH: &str = r#"\.ya?ml$"#;
 
 impl Source {
+    /// Creates a new Source object explicitely
     fn new(name: String, path: PathBuf, recurse: bool,
            playbook_match: Regex, pre_provision: Option<String>,
            ansible: AnsibleContext) -> Self {
@@ -144,6 +149,7 @@ impl Source {
         ))
     }
 
+    /// Runs the pre_provision command for this source
     pub fn update(&self) -> Result<(), String> {
         match &self.pre_provision {
             Some(c) => util::shell(&c, self.path.as_path(), None),
@@ -151,6 +157,7 @@ impl Source {
         }
     }
 
+    /// Locates this source's playbooks
     pub fn explore(&self) -> Vec<PathBuf> {
         let walker = WalkDir::new(&self.path);
         let walker = match self.recurse {
@@ -168,6 +175,7 @@ impl Source {
 
 #[cfg(not(tarpaulin_include))]
 impl Display for Source {
+    /// Renders the source name, used when setting up provisioning
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
     }

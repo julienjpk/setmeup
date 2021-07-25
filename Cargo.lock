@@ -803,7 +803,7 @@ checksum = "558dc50e1a5a5fa7112ca2ce4effcb321b0300c0d4ccf0776a9f60cd89031171"
 
 [[package]]
 name = "setmeup"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "array_tool",
  "atty",

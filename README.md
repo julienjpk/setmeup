@@ -110,7 +110,7 @@ The configuration file itself is [YAML](https://yaml.org/).
         recurse: yes
         pre_provision: "git pull"
         ansible_playbook:
-	      path "/usr/local/bin/ansible-playbook"
+	      path: "/usr/local/bin/ansible-playbook"
 	      env:
 	        - name: "ANSIBLE_CONFIG"
 	          value: "ansible.cfg"

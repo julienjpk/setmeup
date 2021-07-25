@@ -25,6 +25,7 @@ build_x86_64:
   stage: build
   script:
     - cargo build --release
+    - strip target/release/setmeup
     - mv target/release/setmeup ${ARTIFACT_X86_64}
   artifacts:
     paths:
@@ -48,6 +49,7 @@ build_x86_64_musl:
     - cd ../
     - rustup target add x86_64-unknown-linux-musl
     - cargo build --target x86_64-unknown-linux-musl --release
+    - strip target/x86_64-unknown-linux-musl/release/setmeup
     - mv target/x86_64-unknown-linux-musl/release/setmeup ${ARTIFACT_X86_64_MUSL}
   artifacts:
     paths:

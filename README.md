@@ -28,7 +28,7 @@ For the rest of this to work, you will then be guided through a little wizard:
    Depending on what you are provisioning, you might need to provide a sudoer here.
 3. Finally, SMU will send you the public end of an ECDSA key pair.
    You will need to ensure this key pair can be used to login to your machine with the username provided above.
-   Typically, this means adding the public key to that user's `~/.ssh/authorized_keys`.
+   Typically, this means adding the public key to that user's *~/.ssh/authorized_keys*.
 
 When this is done, SMU will test it all to make sure it can reach your system.
 If all goes well, you will then get a prompt through which you can configure your provisioning.
@@ -62,23 +62,15 @@ If your clients already have accounts on your server, they may use those to run 
 
 **In that scenario, no further setup is required for client access.**
 
-If that is not the case, you may create an `smu` user for your clients to share.
+If that is not the case, you may create an *smu* user for your clients to share.
 
-	# useradd -md /var/lib/setmeup -s /usr/local/bin/setmeup
+	# useradd -md /var/lib/setmeup
 
-The `-s` option sets the shell to the SMU binary, which means people logging in as `smu` will start SMU by default.
-
-> This requires SMU to be added to /etc/shells
-
-The `smu` user also needs to have a home directory (`/var/lib/setmeup` here).
-
-> The user does not need to be called `smu`, if you don't like it. In fact, you can also create several users and set them up independently.
-
-You may then grant access to the `smu` user as you would to any other user (`/var/lib/setmeup/.ssh/authorized_keys` or `passwd smu`).
+You may then grant access to the *smu* user as you would to any other user (*/var/lib/setmeup/.ssh/authorized_keys* or `passwd smu`).
 
 ### Restrict the smu user
 
-If you'd like to force the `smu` user to use SMU and not run anything else on your system, I suggest adding this to your SSH server configuration:
+If you'd like to force the *smu* user to use SMU and not run anything else on your system, I suggest adding this to your SSH server configuration:
 
 	# /etc/ssh/sshd_config
 
@@ -95,15 +87,15 @@ Remember to reload your SSH configuration afterwards:
 Set Me Up! looks for its configuration file in those locations, in order:
 
 1. The path given through the `-c` switch
-2. The `SETMEUP_CONF` environment variable.
-3. `$XDG_CONFIG_DIR/setmeup/setmeup.toml`, relative to whoever the client is logged-in as.
-4. `~/.setmeup.toml`, again, user-dependent.
-5. `/etc/setmeup/setmeup.toml`
-6. `/etc/setmeup.toml`
+2. The *SETMEUP_CONF* environment variable.
+3. *$XDG_CONFIG_DIR/setmeup/setmeup.yml*, relative to whoever the client is logged-in as.
+4. *~/.setmeup.yml*, again, user-dependent.
+5. */etc/setmeup/setmeup.yml*
+6. */etc/setmeup.yml*
 
-Options 1, 3 and 4 make it possible for each user to have its own SMU configuration. Note that as per specification, `XDG_CONFIG_DIR` defaults to `~/.config`.
-They also allow you to configure SMU in `/var/lib/setmeup`, if that's what you chose earlier.
-Option 2 is useful if you'd like to configure SMU through `/etc/environment`, `~/.pam_environment` or `~/.ssh/environment`.
+Options 1, 3 and 4 make it possible for each user to have its own SMU configuration. Note that as per specification, *XDG_CONFIG_DIR* defaults to *~/.config*.
+They also allow you to configure SMU in */var/lib/setmeup*, if that's what you chose earlier.
+Option 2 is useful if you'd like to configure SMU through */etc/environment*, *~/.pam_environment* or *~/.ssh/environment*.
 The rest are what I believe to be sensible defaults.
 
 The configuration file itself is [YAML](https://yaml.org/).

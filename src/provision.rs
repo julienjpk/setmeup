@@ -76,6 +76,14 @@ impl<'a> Provision<'a> {
                 .map_err(|e| format!("failed to serialise the private key: {}", e))?.as_bytes())
             .map_err(|e| format!("failed to write the private key to disk: {}", e))?;
 
+        /* Create the inventory file */
+        let mut inventory = NamedTempFile::new().map_err(|e| format!("failed to ready the inventory file: {}", e))?;
+        inventory.write(
+            format!("provisionee ansible_host=127.0.0.1 ansible_port={} ansible_user={}",
+                    self.setup.reverse_port,
+                    self.setup.credentials.username).as_bytes()
+        ).map_err(|e| format!("failed to write the inventory: {}", e))?;
+
         println!("\nRunning ansible-playbook...");
 
         /* Call ansible-playbook */
@@ -85,13 +93,9 @@ impl<'a> Provision<'a> {
                 None => "ansible-playbook"
             },
             vec!(
-                "--private-key",
-                keyfile.path().to_str().unwrap(),
-                "-Ki",
-                &format!("127.0.0.1:{},", self.setup.reverse_port),
-                "-l", "127.0.0.1",
-                "-u",
-                &self.setup.credentials.username,
+                "--private-key", keyfile.path().to_str().unwrap(),
+                "-Ki", inventory.path().to_str().unwrap(),
+                "-l", "provisionee",
                 self.playbook_path.as_path().to_str().unwrap()
             ),
             self.source.path.as_path(),

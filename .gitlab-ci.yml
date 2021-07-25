@@ -1,0 +1,83 @@
+default:
+  image: rust
+
+variables:
+  ARTIFACT_X86_64: "setmeup_x86_64_${CI_COMMIT_TAG}"
+  ARTIFACT_X86_64_MUSL: "setmeup_x86_64_musl-${CI_COMMIT_TAG}"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/setmeup/${CI_COMMIT_TAG}"
+
+stages:
+  - test
+  - build
+  - upload
+  - release
+
+test:
+  stage: test
+  image: xd009642/tarpaulin
+  script:
+    - cargo tarpaulin -o Xml
+  artifacts:
+    reports:
+      cobertura: cobertura.xml
+
+build_x86_64:
+  stage: build
+  script:
+    - cargo build --release
+    - mv target/release/setmeup ${ARTIFACT_X86_64}
+  artifacts:
+    paths:
+      - ${ARTIFACT_X86_64}
+  rules:
+    - if: $CI_COMMIT_TAG
+
+build_x86_64_musl:
+  stage: build
+  script:
+    - apt update
+    - apt install -y musl-tools
+    - wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+    - tar -xf openssl-1.1.1k.tar.gz
+    - cd openssl-1.1.1k/
+    - mkdir musl
+    - ./Configure no-shared no-async --prefix=$PWD/musl --openssldir=$PWD/musl/ssl linux-x86_64
+    - make
+    - make install
+    - export OPENSSL_DIR=$PWD/musl/
+    - cd ../
+    - rustup target add x86_64-unknown-linux-musl
+    - cargo build --target x86_64-unknown-linux-musl --release
+    - mv target/x86_64-unknown-linux-musl/release/setmeup ${ARTIFACT_X86_64_MUSL}
+  artifacts:
+    paths:
+      - ${ARTIFACT_X86_64_MUSL}
+  rules:
+    - if: $CI_COMMIT_TAG
+
+upload:
+  stage: upload
+  image: curlimages/curl:latest
+  script:
+    - "curl -H \"JOB-TOKEN: ${CI_JOB_TOKEN}\" --upload-file ${ARTIFACT_X86_64} ${PACKAGE_REGISTRY_URL}/${ARTIFACT_X86_64}"
+    - "curl -H \"JOB-TOKEN: ${CI_JOB_TOKEN}\" --upload-file ${ARTIFACT_X86_64_MUSL} ${PACKAGE_REGISTRY_URL}/${ARTIFACT_X86_64_MUSL}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - "true"
+  release:
+    name: "setmeup-${CI_COMMIT_TAG}"
+    tag_name: $CI_COMMIT_TAG
+    description: "SetMeUp! ${CI_COMMIT_TAG}"
+    assets:
+      links:
+        - name: ${ARTIFACT_X86_64}
+          url: "${PACKAGE_REGISTRY_URL}/${ARTIFACT_X86_64}"
+        - name: ${ARTIFACT_X86_64_MUSL}
+          url: "${PACKAGE_REGISTRY_URL}/${ARTIFACT_X86_64_MUSL}"
+  rules:
+    - if: $CI_COMMIT_TAG

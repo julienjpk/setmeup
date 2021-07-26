@@ -1,7 +1,12 @@
 [package]
 name = "setmeup"
+description = "Minimalistic Ansible-based remote provisioning tool"
 version = "0.2.0"
 authors = ["Julien JPK <julienjpk@email.com>"]
+repository = "https://gitlab.com/julienjpk/setmeup/"
+license = "AGPL-3.0-or-later"
+keywords = ["dotfiles", "ansible", "provision"]
+categories = ["command-line-utilities", "config"]
 edition = "2018"
 
 [dependencies]

@@ -19,7 +19,9 @@ test:
     - cargo tarpaulin -o Xml
   artifacts:
     reports:
-      cobertura: cobertura.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
 
 build_x86_64:
   stage: build

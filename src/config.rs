@@ -157,7 +157,9 @@ mod tests {
 
     #[test]
     fn test_locate_and_parse_default_ko() -> Result<(), String> {
-        let matches = App::new("tests").get_matches_from(vec!["tests"]);
+        let matches = App::new("setmeup")
+            .arg(Arg::new("config").short('c').takes_value(true))
+            .get_matches_from(vec!["setmeup"]);
         match Config::locate_and_parse(matches) {
             Ok(_) => Err("parsed configuration with no available configuration file".to_string()),
             Err(e) => match e.find("no configuration file found") {
@@ -169,11 +171,9 @@ mod tests {
 
     #[test]
     fn test_locate_and_parse_default_ok() -> Result<(), String> {
-        let matches = App::new("tests")
-            .arg(Arg::with_name("config")
-                 .short("c")
-                 .takes_value(true))
-            .get_matches_from(vec!["tests", "-c", get_test_yaml_file("located").to_str().unwrap()]);
+        let matches = App::new("setmeup")
+            .arg(Arg::new("config").short('c').takes_value(true))
+            .get_matches_from(vec!["setmeup", "-c", get_test_yaml_file("located").to_str().unwrap()]);
 
         match Config::locate_and_parse(matches) {
             Ok(c) => match c.sources[0].name.as_str() {

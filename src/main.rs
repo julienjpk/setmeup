@@ -19,63 +19,57 @@
 
 
 mod provision;
+mod ansible;
 mod sources;
 mod config;
 mod setup;
-mod util;
+mod exec;
+mod ui;
+
+use config::Config;
+use setup::Setup;
+use provision::Provision;
+use ui::UI;
 
 use clap::{Arg, App};
-use atty::Stream;
 
 
 /// Set Me Up! entry point
 #[cfg(not(tarpaulin_include))]
 fn main() {
     let options = App::new("Set Me Up!")
-        .version("0.0.0")
+        .version("0.3.0")
         .about("Minimalistic Ansible-based remote provisioning tool")
-        .arg(Arg::with_name("config").short("c").value_name("FILE").takes_value(true))
+        .arg(Arg::new("config").short('c').value_name("FILE").takes_value(true))
         .get_matches();
 
     /* Locate, parse and validate the configuration file */
-    let run_config = match config::Config::locate_and_parse(options) {
+    let run_config = match Config::locate_and_parse(options) {
         Ok(c) => c,
-        Err(e) => {
-            util::error(&format!("Failed to parse configuration: {}", e));
-            std::process::exit(1);
-        }
+        Err(e) => UI.exit_with_error(&format!("Failed to parse configuration: {}", e))
     };
 
-    util::success("Welcome to Set Me Up!");
-    if ! atty::is(Stream::Stdin) {
-        util::error("Set Me Up! is running without a TTY!\n\
-                     This will make it impossible for ansible-playbook to hide your become password as you type it.\n\
-                     Make sure you use -t when connecting to the SMU server");
-    }
+    UI.intro();
 
     /* Prompt the user about the port, username and key */
-    let client_config = match setup::Setup::prompt() {
+    let client_config = match Setup::prompt() {
         Ok(s) => s,
-        Err(e) => {
-            util::error(&format!("Failed to set up the exchange: {}", e));
-            std::process::exit(1);
-        }
+        Err(e) => UI.exit_with_error(&format!("Failed to set up the exchange: {}", e))
     };
+
+    UI.next_step();
 
     /* Prepare and execute provisioning */
-    let provisioner = match provision::Provision::prompt(&run_config, &client_config) {
+    let provisioner = match Provision::prompt(&run_config, &client_config) {
         Ok(p) => p,
-        Err(e) => {
-            util::error(&format!("Failed to prepare for provisioning: {}", e));
-            std::process::exit(1);
-        }
+        Err(e) => UI.exit_with_error(&format!("Failed to prepare for provisioning: {}", e))
     };
 
+    UI.next_step();
+    UI.running();
+
     match provisioner.execute() {
-        Ok(_) => util::success("Provisioning complete!"),
-        Err(e) => {
-            util::error(&format!("Provisioning error: {}", e));
-            std::process::exit(1);
-        }
+        Ok(r) => UI.render_ansible_result(&r),
+        Err(e) => UI.exit_with_error(&format!("Provisioning error: {}", e))
     }
 }

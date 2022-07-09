@@ -18,7 +18,7 @@
 //! Prompts for the reverse port, the username and sets up key-based authentication
 
 
-use crate::util;
+use crate::ui::UI;
 
 use std::net::TcpListener;
 
@@ -61,16 +61,12 @@ impl Setup {
     /// Prompts the client for the reverse forward port
     fn prompt_port() -> Result<u16, String> {
         loop {
-            let mut input = String::new();
-            util::prompt("Which port did ssh bind to for remote forwarding?", &mut input)?;
-            let input_port = input.parse::<u16>();
-
-            match input_port {
+            match UI.prompt("Which port did you pick for remote forwarding?").parse::<u16>() {
                 Ok(p) => match Self::port_is_bound(p) {
                     true => return Ok(p),
-                    false => util::error(&format!("Port is not bound locally: {}", p))
+                    false => UI.error(&format!("Port is not bound locally: {}", p))
                 }
-                Err(e) => util::error(&format!("Invalid port specification \"{}\" ({})", input, e))
+                Err(e) => UI.error(&format!("Invalid port specification: {}", e))
             }
         }
     }
@@ -103,25 +99,22 @@ impl Setup {
         let keypair_str = keypair.serialize_publickey().map_err(|e| format!("failed to serialise keypair: {}", e))?.to_string();
 
         let mut username = String::new();
-        let mut dummy = String::new();
 
         loop {
             while username.is_empty() {
-                util::prompt("Which username should SetMeUp use to reach you over SSH?", &mut username)?;
+                username = UI.prompt("Which username should SetMeUp use to reach you over SSH?");
                 if username.is_empty() {
-                    util::error(&format!("The username cannot be empty"));
+                    UI.error(&format!("The username cannot be empty"));
                 }
             }
 
-            println!("\nSetMeUp will be using an ECDSA keypair to authenticate with your machine.");
-            println!("Please make sure user {} has the following public key in their ~/.ssh/authorized_keys file:", username);
-            util::important(&keypair_str);
-            util::prompt("Press the Enter key where you are done:", &mut dummy)?;
+            UI.present_pubkey(&username, &keypair_str);
+            UI.prompt("Press the Enter key where you are done:");
 
             match Self::test_credentials(port, &username, &keypair) {
                 Ok(_) => return Ok(SSHCredentials { username, keypair }),
                 Err(e) => {
-                    util::error(&format!("Authentication test failed: {}", e));
+                    UI.error(&format!("Authentication test failed: {}", e));
                     username.clear();
                 }
             }

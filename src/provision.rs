@@ -18,10 +18,11 @@
 //! Interacts with the client and actually provisions it
 
 
+use crate::ansible::AnsibleResult;
 use crate::sources::Source;
 use crate::config::Config;
 use crate::setup::Setup;
-use crate::util;
+use crate::ui::UI;
 
 use osshkeys::cipher::Cipher;
 use tempfile::NamedTempFile;
@@ -42,16 +43,19 @@ pub struct Provision<'a> {
 impl<'a> Provision<'a> {
     /// Prompts the client for a source and playbook
     pub fn prompt(config: &'a Config, setup: &'a Setup) -> Result<Self, String> {
-        println!("Here are the available provisioning sources:\n");
-        let source_index = util::iter_prompt_index(config.sources.iter())?;
+        let source_index = UI.prompt_from_vec(
+            "Here are the available provisioning sources:",
+            &config.sources.iter().map(|s| s.name.clone()).collect()
+        );
 
-        println!("\nPreparing the source...");
         let source = config.sources.get(source_index).unwrap();
         source.update()?;
 
         let playbooks = source.explore();
-        println!("Here are the available playbooks for source {}:\n", source.name);
-        let playbook_index = util::iter_prompt_index(playbooks.iter().map(|p| p.as_path().to_str().unwrap()))?;
+        let playbook_index = UI.prompt_from_vec(
+            "Here are the available playbooks:",
+            &playbooks.iter().map(|p| String::from(p.as_path().to_str().unwrap())).collect()
+        );
         let playbook_path = playbooks[playbook_index].clone();
 
         Ok(Self {
@@ -62,7 +66,7 @@ impl<'a> Provision<'a> {
     }
 
     /// Runs ansible-playbook and provisions the client
-    pub fn execute(&self) -> Result<(), String> {
+    pub fn execute(&self) -> Result<AnsibleResult, String> {
         /* Put the key on disk */
         let mut keyfile = NamedTempFile::new().map_err(|e| format!("failed to ready the private key: {}", e))?;
 
@@ -84,23 +88,12 @@ impl<'a> Provision<'a> {
                     self.setup.credentials.username).as_bytes()
         ).map_err(|e| format!("failed to write the inventory: {}", e))?;
 
-        println!("\nRunning ansible-playbook...");
-
         /* Call ansible-playbook */
-        util::exec(
-            match &self.source.ansible.path {
-                Some(p) => p.as_path().to_str().unwrap(),
-                None => "ansible-playbook"
-            },
-            vec!(
-                "--private-key", keyfile.path().to_str().unwrap(),
-                "-Ki", inventory.path().to_str().unwrap(),
-                "-l", "provisionee",
-                self.playbook_path.as_path().to_str().unwrap()
-            ),
-            self.source.path.as_path(),
-            Some(&self.source.ansible.env),
-            true
+        self.source.ansible.execute(
+            keyfile.path(),
+            inventory.path(),
+            self.playbook_path.as_path(),
+            self.source.path.as_path()
         )
     }
 }

@@ -1,76 +1,59 @@
+<img src="https://jjpk.me/uploads/8186f022fbe440cb8f3fbfe88cf97ff0.svg" align="center" />
+
+
 # Set Me Up!
 
-Set Me Up! (SMU) is a simple implementation of an Ansible-based provisioning server.
-Its main goal is to require very little from the clients we are trying to provision.
-As a matter of fact, all they need is an SSH server and client.
+Set Me Up! is an Ansible-based provisioning server, allowing you to run playbooks on your local machine from a remote server.
 
-The idea is:
+1. You SSH into the provisioning server
+2. You provide a username and register a public key on your local machine
+3. You select a playbook interactively
+3. That playbook is run on your machine
 
-1. The client opens an SSH connection to the provisioning SMU server.
-2. That server prompts for some information.
-3. The client gets automatically provisioned!
+A typical use case is to provision a fresh setup without having to install Ansible, download your playbooks and so on. It's also quite convenient when the target machine cannot easily be reached over SSH.
 
+## ⌨ Usage
 
-## Usage
+On the client you would like to provision, simply connect to your SMU server with:
 
-On the client you would like to provision, simply connect to the SMU server with:
-
-	$ ssh -R 0:localhost:22 smu@smu-server
-	Allocated port 44561 for remote forward to localhost:22
+	$ ssh -TR 0:*:22 smu@setmeup.tld
+	Allocated port 44561 for remote forward to *:22
 	Welcome to Set Me Up!
 
-The `-R` option is what allows SMU to tunnel back to your system for provisioning.
-For the rest of this to work, you will then be guided through a little wizard:
+Then follow the instructions :-)
 
-1. First, you will need to tell SMU which port was allocated for reverse tunnelling.
-   In the example above, this was 44561.
-2. Then, SMU will ask for a username to use on your machine.
-   Depending on what you are provisioning, you might need to provide a sudoer here.
-3. Finally, SMU will send you the public end of an ECDSA key pair.
-   You will need to ensure this key pair can be used to login to your machine with the username provided above.
-   Typically, this means adding the public key to that user's *~/.ssh/authorized_keys*.
-
-When this is done, SMU will test it all to make sure it can reach your system.
-If all goes well, you will then get a prompt through which you can configure your provisioning.
-This is where you pick which Ansible playbook should be played on your machine.
-Which playbooks are available depends on the configuration on the SMU server.
-
-> Note that here, Set Me Up! is configured as the shell for the smu user, which makes the command a little shorter.
-> If your clients already have accounts on your server (and SSH access), there are other options.
+> The `-R` option is what allows your SMU server to hop back to your machine and run your playbook: SSH reverse tunnelling. For more information, have a look at [the SSH client man page](https://linux.die.net/man/1/ssh).
 
 
-## Base server setup
+## 🛠 Server installation
 
-Let's go through installing and configuring Set Me Up!
+First, you'll need to install the Set Me Up! executable on your server. The easiest approach is to download the latest binary [from GitLab CI](https://gitlab.com/julienjpk/setmeup/-/releases). To save yourself the trouble of glibc dependencies, go for the musl build and install it with:
 
-### Installation
+    $ sudo cp setmeup_x86_64_musl-* /usr/local/bin/setmeup
+	$ sudo chown root:root /usr/local/bin/setmeup
+	$ sudo chmod 0755 /usr/local/bin/setmeup
 
-Set Me Up! is written in Rust. Downloading, compiling, testing and installing go like this:
+You can also get it from [crates.io](https://crates.io/crates/setmeup) with Cargo:
+
+	$ cargo install setmeup
+    $ sudo install ${CARGO_HOME:-~/.cargo}/bin/setmeup /usr/local/bin
+
+If you'd rather build it from source, you'll need a Rust toolchain. Compile and install with:
 
 	$ git clone https://gitlab.com/julienjpk/setmeup
 	$ cd setmeup
-	$ cargo test
 	$ cargo build --release
-	$ sudo install -m 755 target/release/setmeup /usr/local/bin
+	$ sudo install target/release/setmeup /usr/local/bin
 
-### Setting up client access
+Next, allow the use of Set Me Up! as a shell. This makes the client command a little bit quicker to type.
 
-How you set up SMU on your server is really up to you.
-If your clients already have accounts on your server, they may use those to run SMU:
+    $ echo /usr/local/bin/setmeup | sudo tee -a /etc/shells
 
-	$ ssh -tR 0:localhost:22 bob@smu-server setmeup
+Create a user for Set Me Up! connections and make it use SMU as a shell:
 
-**In that scenario, no further setup is required for client access.**
+    $ sudo useradd -md /var/lib/setmeup -s /usr/local/bin/setmeup smu
 
-If that is not the case, you may create an *smu* user for your clients to share.
-
-	# useradd -md /var/lib/setmeup
-
-You may then grant access to the *smu* user as you would to any other user (*/var/lib/setmeup/.ssh/authorized_keys* or `passwd smu`).
-
-### Restrict the smu user
-
-If you'd like to force the *smu* user to use SMU and not run anything else on your system, I suggest adding this to your SSH server configuration:
+For extra safety, you may force the use of SMU for this user. This is done in your SSH server configuration file:
 
 	# /etc/ssh/sshd_config
 
@@ -79,26 +62,21 @@ If you'd like to force the *smu* user to use SMU and not run anything else on yo
 
 Remember to reload your SSH configuration afterwards:
 
-	$ systemctl reload sshd
+	$ sudo systemctl reload sshd
 
 
-## Configure provisioning sources and options
+## ⚙ Configure provisioning sources and options
 
 Set Me Up! looks for its configuration file in those locations, in order:
 
 1. The path given through the `-c` switch
 2. The *SETMEUP_CONF* environment variable.
-3. *$XDG_CONFIG_DIR/setmeup/setmeup.yml*, relative to whoever the client is logged-in as.
+3. *$XDG_CONFIG_DIR/setmeup/setmeup.yml*, relative to whoever the client is logged-in as (smu).
 4. *~/.setmeup.yml*, again, user-dependent.
 5. */etc/setmeup/setmeup.yml*
 6. */etc/setmeup.yml*
 
-Options 1, 3 and 4 make it possible for each user to have its own SMU configuration. Note that as per specification, *XDG_CONFIG_DIR* defaults to *~/.config*.
-They also allow you to configure SMU in */var/lib/setmeup*, if that's what you chose earlier.
-Option 2 is useful if you'd like to configure SMU through */etc/environment*, *~/.pam_environment* or *~/.ssh/environment*.
-The rest are what I believe to be sensible defaults.
-
-The configuration file itself is [YAML](https://yaml.org/).
+The configuration file itself is [YAML](https://yaml.org/). For the server setup above, a good location for it is */var/lib/setmeup/.config/setmeup/setmeup.yml*).
 
 	sources:
 	  some_local_source:
@@ -117,13 +95,14 @@ The configuration file itself is [YAML](https://yaml.org/).
 	        - name: "ANSIBLE_ROLES_PATH"
 	          value: "roles"
 
-SMU looks for Ansible playbooks (`\.ya?ml$`) in each source's top-level directory without recursing, unless `recurse` is set.
-The `playbook_match` setting can be used to set a different REGEX if necessary.
-The REGEX is matched against the file path relative to the source's root, which means you can match through subdirectories.
-You may also use the `ansible_playbook` dictionary to customise how `ansible-playbook` will be called for each source.
-Note that SMU will always run `ansible-playbook` from your sources' root directories.
-Finally, the `pre_provision` parameter can be set to have a command run before provisioning a client.
-This is useful if your source is a git repository and you'd like it updated before your playbooks are looked up.
+Here's what you need to know:
+
+- Set Me Up! looks for Ansible playbooks (`\.ya?ml$`) in each source's top-level directory without recursing, unless `recurse` is set.
+- The `playbook_match` setting can be used to set a different REGEX if necessary.
+- The REGEX is matched against the file path relative to the source's root, which means you can match through subdirectories.
+- You may also use the `ansible_playbook` dictionary to customise how `ansible-playbook` will be called for each source.
+- Set Me Up! will always run `ansible-playbook` from your sources' root directories.
+- The `pre_provision` parameter can be set to have a command run before provisioning a client. This is useful if your source is a git repository and you'd like it updated before your playbooks are looked up.
 
 
 ## About

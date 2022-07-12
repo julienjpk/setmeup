@@ -22,12 +22,12 @@ use crate::exec;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::io::Write;
 use faccess::PathExt;
 use yaml_rust::Yaml;
 use serde_json;
 use serde_json::Value as Json;
-use walkdir::WalkDir;
-use tempfile::TempDir;
+use tempfile::NamedTempFile;
 
 
 /// Parameters to use when invoking ansible-playbook
@@ -81,35 +81,27 @@ impl AnsibleContext {
         })
     }
 
-    /// Cleans up control master connections left over by Ansible
-    fn clean_up_control_dir(path: &Path) {
-        let walker = WalkDir::new(path)
-            .min_depth(1)
-            .into_iter()
-            .filter_map(|e| e.ok());
-
-        for entry in walker {
-            let entry_path = match entry.path().to_str() {
-                Some(p) => String::from(p),
-                None => continue
-            };
-
-            let control_path_opt = format!("ControlPath={}", entry_path);
-            exec::run("ssh", vec!("-o", &control_path_opt, "-O", "exit", "bogus"), path, None, false).ok();
-        }
-    }
-
     /// Runs ansible-playbook for provisioning
     pub fn execute(&self, key_path: &Path, inventory_path: &Path,
                    playbook_path: &Path, source_dir_path: &Path) -> Result<AnsibleResult, String> {
-        let ssh_cp_dir = TempDir::new()
-            .map_err(|e| format!("failed to create a temporary directory for SSH control master sockets: {}", e))?;
-
         let mut env = self.env.clone();
         env.insert("ANSIBLE_CALLBACKS_ENABLED".into(), "ansible.posix.json".into());
         env.insert("ANSIBLE_STDOUT_CALLBACK".into(), "ansible.posix.json".into());
         env.insert("ANSIBLE_HOST_KEY_CHECKING".into(), "False".into());
-        env.insert("ANSIBLE_SSH_CONTROL_PATH_DIR".into(), ssh_cp_dir.path().to_str().unwrap().into());
+
+        let playbook_fullpath = source_dir_path.join(playbook_path);
+        let mut play_file = NamedTempFile::new().map_err(|e| format!("failed to ready the temporary play: {}", e))?;
+        play_file.write(format!(
+            concat!(
+                "- ansible.builtin.import_playbook: {}\n",
+                "- hosts: all\n",
+                "  gather_facts: no\n",
+                "  tasks:\n",
+                "    - name: Closing connection\n",
+                "      ansible.builtin.meta: reset_connection\n"
+            ),
+            playbook_fullpath.to_str().unwrap()
+        ).as_bytes()).map_err(|e| format!("failed to write the temporary play: {}", e))?;
 
         let ansible_run = exec::run(
             match &self.path {
@@ -119,15 +111,12 @@ impl AnsibleContext {
             vec!(
                 "--private-key", key_path.to_str().unwrap(),
                 "-i", inventory_path.to_str().unwrap(),
-                "-l", "provisionee",
-                playbook_path.to_str().unwrap()
+                play_file.path().to_str().unwrap()
             ),
             source_dir_path,
             Some(&env),
             true
         );
-
-        Self::clean_up_control_dir(ssh_cp_dir.path());
 
         let ansible_run = ansible_run?;
         let ansible_json: Json = serde_json::from_str(&ansible_run).map_err(|e| e.to_string())?;

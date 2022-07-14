@@ -27,7 +27,13 @@ Then follow the instructions :-)
 
 ## 🛠 Server installation
 
-First, you'll need to install the Set Me Up! executable on your server. The easiest approach is to download the latest binary [from GitLab CI](https://gitlab.com/julienjpk/setmeup/-/releases). To save yourself the trouble of glibc dependencies, go for the musl build and install it with:
+First, you'll need to make sure that your Ansible install comes with the `ansible.posix` collection. This can be checked using `ansible-galaxy collection list`. If you do not see it appear there, you can install it with:
+
+    $ ansible-galaxy collection install ansible.posix
+
+This might require root privileges (`sudo`) if you have installed Ansible system-wide (eg. with your package manager or `sudo pip`).
+
+Then, you'll have to install the Set Me Up! executable on your server. The easiest approach is to download the latest binary [from GitLab CI](https://gitlab.com/julienjpk/setmeup/-/releases). To save yourself the trouble of glibc dependencies, go for the musl build and install it with:
 
     $ sudo cp setmeup_x86_64_musl-* /usr/local/bin/setmeup
 	$ sudo chown root:root /usr/local/bin/setmeup
